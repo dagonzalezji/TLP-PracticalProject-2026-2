@@ -1,0 +1,32 @@
+# TETRIS REBORN - REPORTE DE CAMBIOS Y VERIFICACIÓN (ACTIVIDAD 3)
+
+Este documento detalla todas las modificaciones realizadas en el compilador, motor de juego y archivos `.brick` para cumplir exitosamente con los requerimientos de la Actividad 3: Extensión Estructural de BrickScript. Se ha priorizado en todo momento la retrocompatibilidad con las versiones anteriores.
+
+---
+
+## A. Integración de Rotaciones Completas [Verificado]
+**Objetivo:** Completar 4 estados de rotación para las piezas garantizando coherencia geométrica.
+*   **Archivos Modificados:** `games/tetris.brick`
+*   **Cambios Realizados:**
+    *   **`I_PIECE`**: Se agregaron los estados 3 y 4 (réplicas exactas de 1 y 2 correspondientemente) logrando los 4 estados de rotación sin saltos en el grid.
+    *   **`L_PIECE`**: El diseño original tenía un error lógico donde los estados alternaban entre una pieza "L" y una pieza "J". Se reconstruyeron las matrices de los 4 estados para simular una rotación de 90 grados en el sentido de las agujas del reloj, conservando perfectamente la figura en "L".
+    *   **`T_PIECE`**: Ya contaba con 4 estados consistentes geométricamente en su estado original, por lo que se mantuvo intacta.
+
+## B. Nuevas Figuras y Atributos de Personalización [Verificado]
+**Objetivo:** Agregar etiquetas de color y probabilidad (CHANCE), además de 3 nuevas figuras.
+*   **Archivos Modificados:** `compiler.py`, `runtime.py`, `gramaticas bnf/tetris.bnf`, `games/tetris.brick`
+*   **Cambios Realizados:**
+    *   **Nuevas Figuras:** Se diseñaron las matrices para `O_PIECE` (cuadrado 2x2), `S_PIECE` y `Z_PIECE` y se incluyeron en el archivo `.brick`.
+    *   **Expansión de BNF y Compilador:** Se actualizó `tetris.bnf` para documentar la nueva sintaxis (`COLOR: #HEX` y `CHANCE: num`). En `compiler.py`, se modificó el analizador léxico (*lexer*) para proteger los códigos hexadecimales y evitar que sean tratados como comentarios (carácter `#`). Se actualizó el *parser* para recolectar estas propiedades en un nuevo nodo del AST llamado `shape_properties`. **La estructura anterior de `shapes` no se alteró, logrando la retrocompatibilidad perfecta.**
+    *   **Color Dinámico:** El `runtime.py` ahora lee la propiedad `COLOR`. Si la pieza no lo tiene (ej. código viejo), procesa automáticamente el color por defecto (cyan).
+    *   **Probabilidad Ponderada:** Se implementó una selección aleatoria basada en pesos en `runtime.py` utilizando únicamente la librería estándar `random` (y evitando `numpy`). Se asignaron diferentes pesos en el archivo `.brick` (ej. `CHANCE: 20` para la pieza O, y `CHANCE: 5` para la Z).
+
+## C. Implementación de Power-Ups [Verificado]
+**Objetivo:** Crear una pieza especial que aparezca bajo una condición específica.
+*   **Archivos Modificados:** `games/tetris.brick`, `runtime.py`
+*   **Cambios Realizados:**
+    *   Se definió la pieza `POWERUP_PIECE` en el `.brick` con color blanco (`#FFFFFF`), tamaño `1x1` y `CHANCE: 0` (para que nunca aparezca de forma aleatoria normal).
+    *   **Condición Específica:** Se programó el motor (`runtime.py`) para llevar la cuenta de las líneas limpiadas por el jugador. Cuando se limpian un total acumulado de **2 líneas (200 puntos)**, el sistema intercepta el generador de piezas aleatorio y fuerza la aparición de la `POWERUP_PIECE` de tamaño `1x1`. Esto permite usar la pieza para cubrir huecos difíciles como recompensa por jugar bien.
+
+---
+**CONCLUSIÓN:** Todos los requerimientos fueron cubiertos con éxito, manteniendo la compatibilidad estricta con versiones anteriores gracias a la separación de atributos adicionales en la capa de compilación.
