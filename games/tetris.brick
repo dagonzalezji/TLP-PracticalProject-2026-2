@@ -6,6 +6,7 @@ GAME_GRID (10, 20)
 # --- Definicion de las Piezas ---
 DEFINE SHAPE I_PIECE:
   COLOR: #00FFFF
+  CHANCE: 5
   STATE 1:
     [0, 1, 0, 0]
     [0, 1, 0, 0]
@@ -30,6 +31,7 @@ END
 
 DEFINE SHAPE L_PIECE:
   COLOR: #FFA500
+  CHANCE: 10
   STATE 1:
     [0, 1, 0]
     [0, 1, 0]
@@ -50,6 +52,7 @@ END
 
 DEFINE SHAPE T_PIECE:
   COLOR: #800080
+  CHANCE: 15
   STATE 1:
     [0, 1, 0]
     [1, 1, 1]
@@ -70,6 +73,7 @@ END
 
 DEFINE SHAPE O_PIECE:
   COLOR: #FFFF00
+  CHANCE: 20
   STATE 1:
     [1, 1]
     [1, 1]
@@ -77,6 +81,7 @@ END
 
 DEFINE SHAPE S_PIECE:
   COLOR: #00FF00
+  CHANCE: 5
   STATE 1:
     [0, 1, 1]
     [1, 1, 0]
@@ -97,6 +102,7 @@ END
 
 DEFINE SHAPE Z_PIECE:
   COLOR: #FF0000
+  CHANCE: 5
   STATE 1:
     [1, 1, 0]
     [0, 1, 1]
