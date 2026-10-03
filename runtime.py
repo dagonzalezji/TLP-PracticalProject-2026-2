@@ -53,6 +53,8 @@ class Juego:
             self.pieza_actual = None
             self.pieza_x, self.pieza_y, self.pieza_rotacion = 0, 0, 0
             self.velocidad_gravedad = 0.4
+            self.lineas_limpias_total = 0
+            self.spawn_powerup = False
         
         if self.tipo_juego == 'SNAKE':
             self.serpiente_cuerpo = []
@@ -193,11 +195,16 @@ class Juego:
         r = random.uniform(0, total)
         upto = 0
         nombre_pieza = shapes[0]
-        for i, w in enumerate(weights):
-            if upto + w >= r:
-                nombre_pieza = shapes[i]
-                break
-            upto += w
+        
+        if getattr(self, 'spawn_powerup', False) and 'POWERUP_PIECE' in shapes:
+            nombre_pieza = 'POWERUP_PIECE'
+            self.spawn_powerup = False
+        else:
+            for i, w in enumerate(weights):
+                if upto + w >= r:
+                    nombre_pieza = shapes[i]
+                    break
+                upto += w
             
         self.pieza_actual = self.datos_juego['shapes'][nombre_pieza]
         
@@ -254,6 +261,11 @@ class Juego:
         if lineas_limpias > 0:
             self.grid = [[0] * self.ancho for _ in range(lineas_limpias)] + nuevo_grid
             for _ in range(lineas_limpias): self.ejecutar_evento('ON_LINE_CLEAR')
+            
+            self.lineas_limpias_total += lineas_limpias
+            if self.lineas_limpias_total >= 2:
+                self.spawn_powerup = True
+                self.lineas_limpias_total = 0
     
     def snake_spawn_jugador(self, accion):
         coords = accion['params'][0] if accion['params'] else [self.ancho // 2, self.alto // 2]

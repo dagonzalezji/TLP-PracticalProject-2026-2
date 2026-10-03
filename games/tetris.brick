@@ -121,6 +121,19 @@ DEFINE SHAPE Z_PIECE:
     [0, 1, 0]
 END
 
+DEFINE SHAPE POWERUP_PIECE:
+  COLOR: #FFFFFF
+  CHANCE: 0
+  STATE 1:
+    [1]
+  STATE 2:
+    [1]
+  STATE 3:
+    [1]
+  STATE 4:
+    [1]
+END
+
 # --- Logica y Reglas ---
 ON START:
   SPAWN RANDOM_SHAPE
