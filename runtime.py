@@ -134,7 +134,7 @@ class Juego:
             for y_offset, fila in enumerate(matriz_pieza):
                 for x_offset, celda in enumerate(fila):
                     if celda == 1:
-                        self.dibujar_celda(self.pieza_x + x_offset, self.pieza_y + y_offset, COLOR_PIEZA)
+                        self.dibujar_celda(self.pieza_x + x_offset, self.pieza_y + y_offset, getattr(self, 'color_pieza_actual', '#00FFFF'))
         
         # 3. Dibujar Snake y Comida
         if self.tipo_juego == 'SNAKE':
@@ -179,8 +179,31 @@ class Juego:
     # ---------------------------------------------------------------------
 
     def tetris_spawn_pieza(self):
-        nombre_pieza = random.choice(list(self.datos_juego['shapes'].keys()))
+        shapes = list(self.datos_juego['shapes'].keys())
+        shape_props = self.datos_juego.get('shape_properties', {})
+        
+        # Calculate weights for probabilities
+        weights = []
+        for shape in shapes:
+            props = shape_props.get(shape, {})
+            chance = int(props.get('CHANCE', 10))
+            weights.append(chance)
+            
+        total = sum(weights)
+        r = random.uniform(0, total)
+        upto = 0
+        nombre_pieza = shapes[0]
+        for i, w in enumerate(weights):
+            if upto + w >= r:
+                nombre_pieza = shapes[i]
+                break
+            upto += w
+            
         self.pieza_actual = self.datos_juego['shapes'][nombre_pieza]
+        
+        props = shape_props.get(nombre_pieza, {})
+        self.color_pieza_actual = props.get('COLOR', '#00FFFF')
+        
         self.pieza_x, self.pieza_y, self.pieza_rotacion = self.ancho // 2 - 2, 0, 0
         if self.tetris_verificar_colision(self.pieza_x, self.pieza_y, self.pieza_rotacion):
             self.juego_terminado = True

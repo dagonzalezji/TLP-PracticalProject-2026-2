@@ -7,8 +7,16 @@ import re
 import json
 
 def lexer(codigo_fuente):
+    colores = re.findall(r'#[0-9A-Fa-f]{6}', codigo_fuente)
+    for i, c in enumerate(colores):
+        codigo_fuente = codigo_fuente.replace(c, f"__COLOR{i}__")
+        
     codigo_fuente = re.sub(r'#.*', '', codigo_fuente)
-    token_regex = r'\b[A-Z_]+\b|\d+|[\[\](),:]'
+    
+    for i, c in enumerate(colores):
+        codigo_fuente = codigo_fuente.replace(f"__COLOR{i}__", c)
+        
+    token_regex = r'#[0-9A-Fa-f]{6}|\b[A-Z_]+\b|\d+|[\[\](),:]'
     tokens = re.findall(token_regex, codigo_fuente)
     return tokens
 
@@ -16,7 +24,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.posicion = 0
-        self.ast = {"tipo_juego": None, "config": {}, "shapes": {}, "events": {}}
+        self.ast = {"tipo_juego": None, "config": {}, "shapes": {}, "events": {}, "shape_properties": {}}
 
     def parse(self):
         while self.posicion < len(self.tokens):
@@ -62,6 +70,15 @@ class Parser:
         self.consumir('SHAPE')
         nombre_shape = self.consumir()
         self.consumir(':')
+        
+        self.ast['shape_properties'][nombre_shape] = {}
+        
+        while self.posicion < len(self.tokens) and self.tokens[self.posicion] in ['COLOR', 'CHANCE']:
+            prop = self.consumir()
+            self.consumir(':')
+            val = self.consumir()
+            self.ast['shape_properties'][nombre_shape][prop] = val
+
         estados = []
         while self.posicion < len(self.tokens) and self.tokens[self.posicion] == 'STATE':
             self.consumir('STATE')
