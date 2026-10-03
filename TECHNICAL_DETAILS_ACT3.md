@@ -1,126 +1,178 @@
 # Análisis Técnico Detallado - Cambios Actividad 3
 
-Este documento expone a un nivel técnico la arquitectura de los cambios realizados en el compilador `compiler.py` y el motor `runtime.py` para cumplir con las extensiones del lenguaje solicitadas, detallando el código explícito insertado y la justificación detrás de cada decisión de diseño para preservar la retrocompatibilidad.
+Este documento detalla técnica e iterativamente cada requerimiento solicitado en la Actividad 3. Por cada literal se expone qué se hizo, en qué archivos, cómo se programó, por qué se tomaron esas decisiones (enfocado en retrocompatibilidad) y su impacto visible en el juego.
 
 ---
 
-## 1. Modificación del Analizador Léxico (Lexer)
-**Archivo:** `compiler.py`
+## Literal A: Integración de Rotaciones Completas
 
-**El Problema:**
-El lenguaje `.brick` originalmente utilizaba el símbolo `#` de forma exclusiva para los comentarios de una línea. Al requerir la inserción de la etiqueta `COLOR: #FFFFFF`, el analizador léxico (`lexer`) estaba configurado con la expresión regular `re.sub(r'#.*', '', codigo_fuente)`, lo que provocaba que cualquier color hexadecimal fuera detectado como un comentario y eliminado antes del parseo, rompiendo la compilación.
+### 1. ¿Qué se hizo?
+Se reescribieron y completaron los estados de rotación (matrices geométricas) para las piezas `I_PIECE` y `L_PIECE` para garantizar que tuvieran 4 estados lógicos sin saltos irregulares.
 
-**Código Añadido / Modificado:**
+### 2. ¿Dónde se hizo?
+Exclusivamente en el archivo de definición `games/tetris.brick`.
+
+### 3. Código Explícito (.brick):
+```brick
+DEFINE SHAPE L_PIECE:
+  # Estado 1: L Original (mirando hacia arriba)
+  STATE 1:
+    [0, 1, 0]
+    [0, 1, 0]
+    [0, 1, 1]
+  # Estado 2: L rotada 90° horario
+  STATE 2:
+    [0, 0, 0]
+    [1, 1, 1]
+    [1, 0, 0]
+  # Estado 3: L rotada 180°
+  STATE 3:
+    [1, 1, 0]
+    [0, 1, 0]
+    [0, 1, 0]
+  # Estado 4: L rotada 270°
+  STATE 4:
+    [0, 0, 1]
+    [1, 1, 1]
+    [0, 0, 0]
+END
+```
+*(Se aplicó una corrección similar para completar los 4 estados de la `I_PIECE`).*
+
+### 4. ¿Cómo funciona y por qué se hizo así?
+El código original de la `L_PIECE` tenía un error de diseño: los estados 1 y 3 eran una "L", pero los estados 2 y 4 mutaban matemáticamente a una "J". Se reconstruyeron las matrices simulando una rotación real de 90 grados sobre su eje central en cada paso. Se mantuvo la pieza `T_PIECE` intacta porque ya cumplía geométricamente con sus 4 estados, respetando la regla de no alterar lo que ya funciona.
+
+### 5. ¿Cómo se ve reflejado en el juego?
+Al presionar la Flecha Arriba mientras cae la pieza "L" o la pieza "I", estas giran de manera fluida y natural sobre su propio eje, sin transformarse en otra figura distinta ni "teletransportarse" a un lado de la pantalla.
+
+---
+
+## Literal B: Nuevas Figuras y Atributos de Personalización
+
+### B.1: Tres Nuevas Figuras (O, S, Z)
+
+*   **Qué se hizo:** Diseño de matrices 2D y adición al código fuente del juego.
+*   **Dónde se hizo:** Al final del archivo `games/tetris.brick`.
+*   **Código Explícito:**
+```brick
+DEFINE SHAPE O_PIECE:
+  # ... (etiquetas de color y chance omitidas por brevedad)
+  STATE 1:
+    [1, 1]
+    [1, 1]
+END
+
+DEFINE SHAPE S_PIECE:
+  STATE 1:
+    [0, 1, 1]
+    [1, 1, 0]
+    [0, 0, 0]
+  STATE 2:
+    [0, 1, 0]
+    [0, 1, 1]
+    [0, 0, 1]
+  # (Estados 3 y 4 repiten la secuencia geométrica...)
+```
+*   **Cómo funciona y por qué:** Para el bloque cuadrado `O_PIECE`, se definió una matriz de `2x2` para mantener la escala del juego. Para las piezas `S` y `Z` se utilizaron matrices de `3x3`. Se decidió agregarles 4 estados a todas (aunque la pieza `O` repita siempre el mismo) para que el motor `runtime.py` pueda llamar libremente a la función de rotación sin riesgo de lanzar excepciones por "Index out of bounds".
+*   **Reflejo en el juego:** Aparecen en pantalla las clásicas piezas cuadradas y las siluetas zigzagueantes (S y Z) diversificando el juego.
+
+---
+
+### B.2: Colores por Tipo (Procesamiento Dinámico)
+
+*   **Qué se hizo:** Se expandió la sintaxis para aceptar `COLOR: #HEX`. Se protegió el carácter `#` en el analizador léxico, se parseó en el AST y se inyectó al renderizador del juego.
+*   **Dónde se hizo:** `gramaticas bnf/tetris.bnf`, `compiler.py` (Lexer y Parser), `runtime.py` (Motor de renderizado) y `games/tetris.brick`.
+*   **Código Explícito (compiler.py - Lexer):**
 ```python
-def lexer(codigo_fuente):
-    # 1. Extraer y proteger los colores hexadecimales
+    # Proteger colores hexadecimales antes de borrar comentarios
     colores = re.findall(r'#[0-9A-Fa-f]{6}', codigo_fuente)
     for i, c in enumerate(colores):
         codigo_fuente = codigo_fuente.replace(c, f"__COLOR{i}__")
         
-    # 2. Eliminar comentarios estándar
-    codigo_fuente = re.sub(r'#.*', '', codigo_fuente)
-    
-    # 3. Restaurar los colores
-    for i, c in enumerate(colores):
-        codigo_fuente = codigo_fuente.replace(f"__COLOR{i}__", c)
-        
-    token_regex = r'#[0-9A-Fa-f]{6}|\b[A-Z_]+\b|\d+|[\[\](),:]'
-    tokens = re.findall(token_regex, codigo_fuente)
-    return tokens
+    codigo_fuente = re.sub(r'#.*', '', codigo_fuente) # Borra comentarios
+    # ... (restaura colores)
 ```
-
-**Por qué y su Impacto:**
-En lugar de forzar a los usuarios a escribir colores sin el `#` (lo cual va en contra de la UX esperada en desarrollo web y diseño), se diseñó un paso de "pre-procesamiento". El Lexer escanea temporalmente el código buscando patrones hexadecimales estrictos de 6 dígitos. Si los encuentra, los reemplaza por un comodín temporal (`__COLOR0__`). Luego elimina todos los comentarios destructivamente, y finalmente restaura los comodines a sus valores originales. 
-*Impacto:* Permite el uso de sintaxis hexadecimal natural (`#FF0000`) sin cambiar drásticamente la gramática de los comentarios del lenguaje.
+*   **Código Explícito (tetris.brick):**
+```brick
+DEFINE SHAPE L_PIECE:
+  COLOR: #FFA500
+```
+*   **Cómo funciona y por qué:** Originalmente, el compilador borraba todo lo que hubiese después de un `#` al considerarlo un comentario. Modificamos el lexer mediante expresiones regulares para enmascarar códigos de 6 dígitos temporales (`__COLOR0__`), permitiendo la sintaxis habitual del diseño web. En el `parser`, guardamos estas propiedades en un nodo JSON separado llamado `"shape_properties"`. Esto se hizo por **estricta retrocompatibilidad**: un motor viejo seguirá leyendo `"shapes"`, ignorando `"shape_properties"` y usando su color cian por defecto sin crashear.
+*   **Reflejo en el juego:** El juego deja de ser monótono. Al caer, cada pieza tiene su propio color (La 'L' es naranja, la 'T' es morada, la cuadrada amarilla, etc.).
 
 ---
 
-## 2. Expansión del Abstract Syntax Tree (Parser)
-**Archivo:** `compiler.py`
+### B.3: Probabilidad de Aparición Ponderada
 
-**El Problema:**
-Había que agregar soporte para parsear `COLOR` y `CHANCE` dentro de las piezas, pero si se alteraba el array `shapes` dentro del archivo `.json` de salida (ej. pasando de una lista de matrices a un diccionario de atributos), **todo juego compilado bajo la nueva versión dejaría de ser ejecutable por el motor antiguo, rompiendo la retrocompatibilidad exigida**.
-
-**Código Añadido / Modificado:**
+*   **Qué se hizo:** Inserción de pesos por pieza mediante `CHANCE: num` y actualización del selector pseudo-aleatorio.
+*   **Dónde se hizo:** `compiler.py`, `runtime.py` y `games/tetris.brick`.
+*   **Código Explícito (runtime.py - Algoritmo de Ruleta):**
 ```python
-    def parsear_shape(self):
-        # ... (parseo del nombre)
-        self.ast['shape_properties'][nombre_shape] = {}
+    # 1. Extracción de pesos con fallback a 10 (retrocompatibilidad)
+    weights = []
+    for shape in shapes:
+        props = shape_props.get(shape, {})
+        chance = int(props.get('CHANCE', 10))
+        weights.append(chance)
         
-        while self.posicion < len(self.tokens) and self.tokens[self.posicion] in ['COLOR', 'CHANCE']:
-            prop = self.consumir()
-            self.consumir(':')
-            val = self.consumir()
-            self.ast['shape_properties'][nombre_shape][prop] = val
-        # ... (continúa parseo de matrices inalterado)
+    # 2. Selección por peso (Roulette Wheel)
+    total = sum(weights)
+    r = random.uniform(0, total)
+    upto = 0
+    nombre_pieza = shapes[0]
+    for i, w in enumerate(weights):
+        if upto + w >= r:
+            nombre_pieza = shapes[i]
+            break
+        upto += w
 ```
-
-**Por qué y su Impacto:**
-Se decidió separar las metadatas. Se creó un nuevo nodo raíz en el árbol sintáctico (AST) de salida llamado `"shape_properties"`. La definición geométrica pura de las piezas se sigue inyectando en `"shapes"`.
-*Impacto:* Un `.json` compilado con el nuevo sistema es 100% retrocompatible. Si un motor antiguo lee el archivo, simplemente ignorará la llave `"shape_properties"` y seguirá renderizando los arrays de `"shapes"`.
+*   **Código Explícito (tetris.brick):**
+```brick
+DEFINE SHAPE O_PIECE:
+  COLOR: #FFFF00
+  CHANCE: 20
+```
+*   **Cómo funciona y por qué:** Se reemplazó la función plana `random.choice()` por el algoritmo matemático *Roulette Wheel Selection*. Se extrae el peso de la etiqueta `CHANCE`. Si un `.brick` viejo no lo tiene, se usa el `get('CHANCE', 10)` (todos asumen peso 10, volviéndose uniformes de nuevo, logrando **retrocompatibilidad**). Se empleó `random.uniform` de la librería estándar para evitar la instalación prohibida de paquetes de terceros como `numpy`.
+*   **Reflejo en el juego:** Piezas a las que le dimos un peso alto (ej. la cuadrada con 20) invadirán el tablero mucho más frecuentemente que las piezas con pesos bajos (ej. S y Z con peso 5).
 
 ---
 
-## 3. Lógica de Probabilidades Ponderadas
-**Archivo:** `runtime.py`
+## Literal C: Implementación de Power-Ups (Objetos Especiales)
 
-**El Problema:**
-El requisito exige que la selección aleatoria de piezas no sea uniforme, sino ponderada (basada en el `CHANCE` de cada `.brick`), usando Python 2.7 nativo sin librerías externas (sin `numpy.random.choice`).
+### 1. ¿Qué se hizo?
+Se creó una pieza de ayuda (`POWERUP_PIECE`) de tamaño 1x1, blanca, que el jugador "desbloquea" al jugar bien (después de limpiar 2 líneas del tablero).
 
-**Código Añadido / Modificado:**
-```python
-    def tetris_spawn_pieza(self):
-        shapes = list(self.datos_juego['shapes'].keys())
-        shape_props = self.datos_juego.get('shape_properties', {})
-        
-        # 1. Extracción de pesos con fallback a 10
-        weights = []
-        for shape in shapes:
-            props = shape_props.get(shape, {})
-            chance = int(props.get('CHANCE', 10))
-            weights.append(chance)
-            
-        # 2. Algoritmo de Ruleta (Roulette Wheel Selection)
-        total = sum(weights)
-        r = random.uniform(0, total)
-        upto = 0
-        nombre_pieza = shapes[0]
-        # (Lógica de PowerUp inyectada aquí...)
-        else:
-            for i, w in enumerate(weights):
-                if upto + w >= r:
-                    nombre_pieza = shapes[i]
-                    break
-                upto += w
+### 2. ¿Dónde se hizo?
+`games/tetris.brick` (Definición de la entidad) y `runtime.py` (Interceptación del Spawn).
+
+### 3. Código Explícito (.brick):
+```brick
+DEFINE SHAPE POWERUP_PIECE:
+  COLOR: #FFFFFF
+  CHANCE: 0
+  STATE 1:
+    [1]
+  # ... (4 estados idénticos)
 ```
 
-**Por qué y su Impacto:**
-Se implementó el algoritmo matemático clásico de *Roulette Wheel Selection*. Se suman todos los pesos (ej. total = 100). Se lanza un aleatorio uniforme entre 0 y el total. Luego se iteran los pesos sumándolos consecutivamente hasta que superan el número aleatorio, seleccionando así la pieza. El uso del `get('CHANCE', 10)` garantiza que si se corre el juego original sin `CHANCE`, todas las piezas asumirán un peso igualitario de `10`, cayendo elegantemente a una probabilidad uniforme.
-
----
-
-## 4. Inyección del Power-Up por Condición Dinámica
-**Archivo:** `runtime.py`
-
-**El Problema:**
-El `POWERUP_PIECE` debe insertarse en el ciclo del juego bajo demanda (en este caso, tras limpiar 2 líneas) sin que afecte la entropía matemática del sistema probabilístico principal.
-
-**Código Añadido / Modificado:**
+### 4. Código Explícito (runtime.py):
 ```python
-    # En tetris_limpiar_lineas()
+    # Evaluador de condición (Al limpiar líneas)
     self.lineas_limpias_total += lineas_limpias
     if self.lineas_limpias_total >= 2:
         self.spawn_powerup = True
         self.lineas_limpias_total = 0
 
-    # En tetris_spawn_pieza()
+    # Interceptación del Spawn (tetris_spawn_pieza)
     if getattr(self, 'spawn_powerup', False) and 'POWERUP_PIECE' in shapes:
         nombre_pieza = 'POWERUP_PIECE'
         self.spawn_powerup = False
 ```
 
-**Por qué y su Impacto:**
-El diseño usa el patrón de "Banderas de Interrupción" (Flag interruption). En lugar de modificar los pesos del `POWERUP` en tiempo real (lo cual requeriría recalcular el arreglo de pesos), se le asigna a la pieza un `CHANCE: 0` constante en el `.brick`. El recolector de líneas limpias evalúa la condición matemática (≥ 2 líneas acumuladas). De ser cierta, levanta el flag `spawn_powerup`.
-Cuando se ejecuta la función principal de `spawn`, si el flag está levantado, el algoritmo hace un *short-circuit* (ignora por completo el cálculo aleatorio de la ruleta) y fuerza el objeto, apagando de nuevo la bandera.
-*Impacto:* Sistema modular que no ensucia la lógica probabilística y permite expandir el concepto de PowerUps múltiples en el futuro simplemente añadiendo variables booleanas que interrumpan la cola de generación.
+### 5. ¿Cómo funciona y por qué se hizo así?
+El Power-Up recibe una probabilidad matemática base de `CHANCE: 0` en el archivo de texto, lo que asegura que el algoritmo de ruleta (descrito en el literal anterior) jamás lo arroje por accidente. 
+En paralelo, el motor vigila las líneas limpiadas. Cuando el contador supera las 2 líneas, activa una variable de estado (`spawn_powerup = True`). 
+En el próximo turno, la función de generación detecta esta bandera activa y hace un *short-circuit*: ignora la matemática de ruleta y empuja directamente la pieza `POWERUP_PIECE` a la pantalla. Se decidió este método de interrupción de banderas ("Flag Interruption") para no contaminar la lista estática de pesos con probabilidades dinámicas.
+
+### 6. ¿Cómo se ve reflejado en el juego?
+El jugador juega normalmente su partida. Cuando su nivel de habilidad le permite romper 2 líneas apiladas (es decir, consigue 200 puntos), el juego "premia" al jugador haciendo que la siguiente pieza en caer sea un diminuto cuadro blanco de `1x1` píxeles, el cual puede utilizarse de comodín para tapar cualquier hueco profundo del tablero.
