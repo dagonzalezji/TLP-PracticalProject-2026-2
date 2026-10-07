@@ -9,12 +9,12 @@ import json
 def lexer(codigo_fuente):
     colores = re.findall(r'#[0-9A-Fa-f]{6}', codigo_fuente)
     for i, c in enumerate(colores):
-        codigo_fuente = codigo_fuente.replace(c, f"__COLOR{i}__")
+        codigo_fuente = codigo_fuente.replace(c, "__COLOR{}__".format(i))
         
     codigo_fuente = re.sub(r'#.*', '', codigo_fuente)
     
     for i, c in enumerate(colores):
-        codigo_fuente = codigo_fuente.replace(f"__COLOR{i}__", c)
+        codigo_fuente = codigo_fuente.replace("__COLOR{}__".format(i), c)
         
     token_regex = r'#[0-9A-Fa-f]{6}|\b[A-Z_]+\b|\d+|[\[\](),:]'
     tokens = re.findall(token_regex, codigo_fuente)

@@ -404,6 +404,28 @@
           0
         ]
       ]
+    ],
+    "POWERUP_PIECE": [
+      [
+        [
+          1
+        ]
+      ],
+      [
+        [
+          1
+        ]
+      ],
+      [
+        [
+          1
+        ]
+      ],
+      [
+        [
+          1
+        ]
+      ]
     ]
   },
   "events": {
@@ -489,6 +511,10 @@
     "Z_PIECE": {
       "COLOR": "#FF0000",
       "CHANCE": "5"
+    },
+    "POWERUP_PIECE": {
+      "COLOR": "#FFFFFF",
+      "CHANCE": "0"
     }
   }
 }
