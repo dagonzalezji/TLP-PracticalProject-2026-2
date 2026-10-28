@@ -516,5 +516,6 @@
       "COLOR": "#FFFFFF",
       "CHANCE": "0"
     }
-  }
+  },
+  "levels": {}
 }

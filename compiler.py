@@ -16,7 +16,7 @@ def lexer(codigo_fuente):
     for i, c in enumerate(colores):
         codigo_fuente = codigo_fuente.replace("__COLOR{}__".format(i), c)
         
-    token_regex = r'#[0-9A-Fa-f]{6}|\b[A-Z_]+\b|\d+|[\[\](),:]'
+    token_regex = r'#[0-9A-Fa-f]{6}|\b[A-Z_]+\b|-?\d+\.\d+|-?\d+|[\[\](),:]'
     tokens = re.findall(token_regex, codigo_fuente)
     return tokens
 
@@ -24,7 +24,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.posicion = 0
-        self.ast = {"tipo_juego": None, "config": {}, "shapes": {}, "events": {}, "shape_properties": {}}
+        self.ast = {"tipo_juego": None, "config": {}, "shapes": {}, "events": {}, "shape_properties": {}, "levels": {}}
 
     def parse(self):
         while self.posicion < len(self.tokens):
@@ -33,6 +33,8 @@ class Parser:
                 self.parsear_tipo_juego()
             elif token_actual == 'GAME_GRID':
                 self.parsear_grid()
+            elif token_actual == 'LEVELS':
+                self.parsear_levels()
             elif token_actual == 'DEFINE':
                 self.parsear_shape()
             elif token_actual == 'ON':
@@ -65,6 +67,23 @@ class Parser:
         self.consumir(')')
         self.ast['config']['grid_size'] = [ancho, alto]
 
+    def parsear_levels(self):
+        self.consumir('LEVELS')
+        self.consumir(':')
+        while self.posicion < len(self.tokens) and self.tokens[self.posicion] != 'END':
+            self.consumir('LEVEL')
+            nombre_nivel = self.consumir()
+            self.consumir(':')
+            props = {}
+            while self.posicion < len(self.tokens) and self.tokens[self.posicion] != 'END':
+                prop = self.consumir()
+                self.consumir(':')
+                val = self.consumir()
+                props[prop] = val
+            self.consumir('END')
+            self.ast['levels'][nombre_nivel] = props
+        self.consumir('END')
+
     def parsear_shape(self):
         self.consumir('DEFINE')
         self.consumir('SHAPE')
@@ -73,11 +92,14 @@ class Parser:
         
         self.ast['shape_properties'][nombre_shape] = {}
         
-        while self.posicion < len(self.tokens) and self.tokens[self.posicion] in ['COLOR', 'CHANCE']:
-            prop = self.consumir()
-            self.consumir(':')
-            val = self.consumir()
-            self.ast['shape_properties'][nombre_shape][prop] = val
+        while self.posicion < len(self.tokens) and self.tokens[self.posicion] not in ['STATE', 'END']:
+            if self.posicion + 1 < len(self.tokens) and self.tokens[self.posicion + 1] == ':':
+                prop = self.consumir()
+                self.consumir(':')
+                val = self.consumir()
+                self.ast['shape_properties'][nombre_shape][prop] = val
+            else:
+                break
 
         estados = []
         while self.posicion < len(self.tokens) and self.tokens[self.posicion] == 'STATE':
@@ -125,7 +147,7 @@ class Parser:
                     y = int(self.consumir())
                     self.consumir(')')
                     params.append([x, y])
-            elif self.posicion < len(self.tokens) and self.tokens[self.posicion] not in ['END', 'ON', 'DEFINE', 'SPAWN', 'MOVE', 'ROTATE', 'INCREASE_SCORE', 'SET_DIRECTION', 'GROW', 'GAME_OVER']:
+            elif self.posicion < len(self.tokens) and self.tokens[self.posicion] not in ['END', 'ON', 'DEFINE', 'SPAWN', 'MOVE', 'ROTATE', 'INCREASE_SCORE', 'SET_DIRECTION', 'GROW', 'GAME_OVER', 'LEVELS']:
                 params.append(self.consumir())
             acciones.append({'accion': verbo, 'objeto': objeto, 'params': params})
         self.consumir('END')

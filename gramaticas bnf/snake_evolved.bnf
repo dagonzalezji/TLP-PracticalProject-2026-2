@@ -1,0 +1,58 @@
+<programa> ::= <tipo_juego> <grid> <bloque_levels> <definiciones> <eventos>
+            | <tipo_juego> <grid> <definiciones> <eventos>
+
+<tipo_juego> ::= "GAME_TYPE" "SNAKE"
+<grid>       ::= "GAME_GRID" "(" <numero> "," <numero> ")"
+
+<bloque_levels>     ::= "LEVELS" ":" <lista_niveles> "END"
+<lista_niveles>     ::= <definicion_nivel> | <definicion_nivel> <lista_niveles>
+<definicion_nivel>  ::= "LEVEL" <nombre_nivel> ":" <propiedades_nivel> "END"
+<nombre_nivel>      ::= "BABY" | "ENTUSIASTA" | "NYAN_CAT"
+<propiedades_nivel> ::= <vacio> | <propiedad_nivel> <propiedades_nivel>
+<propiedad_nivel>   ::= "TICK_SPEED" ":" <decimal_o_num>
+                      | "POWERUP_DURATION" ":" <numero>
+                      | "SCORE_THRESHOLD" ":" <numero>
+                      | "OBSTACLES" ":" <numero>
+                      | "POISON_PENALTY" ":" <numero>
+
+<definiciones>      ::= <definicion_shape> | <definicion_shape> <definiciones>
+<definicion_shape>  ::= "DEFINE" "SHAPE" <identificador> ":" <propiedades_shape> <estados> "END"
+<propiedades_shape> ::= <vacio> | <propiedad_shape> <propiedades_shape>
+<propiedad_shape>   ::= "TYPE" ":" <tipo_figura>
+                      | "COLOR" ":" <hex_color>
+                      | "CHANCE" ":" <numero>
+                      | "DURATION" ":" <numero>
+<tipo_figura>       ::= "CIRCULAR" | "TRIANGULAR" | "RECTANGULAR"
+
+<estados>          ::= <estado> | <estado> <estados>
+<estado>           ::= "STATE" <numero> ":" <matriz>
+<matriz>           ::= <fila> | <fila> <matriz>
+<fila>             ::= "[" <valores_fila> "]"
+<valores_fila>     ::= <numero> | <numero> "," <valores_fila>
+
+<hex_color>        ::= "#" <hex_digito> <hex_digito> <hex_digito> <hex_digito> <hex_digito> <hex_digito>
+<hex_digito>       ::= <digito> | "A"..."F" | "a"..."f"
+
+<eventos>          ::= <evento> | <evento> <eventos>
+<evento>           ::= "ON" <nombre_evento_snake> ":" <acciones_snake> "END"
+<nombre_evento_snake> ::= "START" | "TICK" | "EAT_FOOD" | "EAT_POISON" | "EAT_POWERUP" | "COLLISION_WALL" | "COLLISION_SELF" | "COLLISION_OBSTACLE" | "KEY_UP" | "KEY_DOWN" | "KEY_LEFT" | "KEY_RIGHT"
+<acciones_snake>   ::= <accion_snake> | <accion_snake> <acciones_snake>
+
+<accion_snake>     ::= <accion_spawn> | <accion_mover> | <accion_direccion> | <accion_puntos> | <accion_crecer> | <accion_gameover>
+<accion_spawn>     ::= "SPAWN" <objeto_snake> "AT" <ubicacion>
+<objeto_snake>     ::= "PLAYER" | "FOOD" | "POISON_FOOD" | "POWERUP_FOOD" | "CLOUD_OBSTACLE"
+<ubicacion>        ::= <coordenadas> | "RANDOM"
+<accion_mover>     ::= "MOVE" "PLAYER" "FORWARD"
+<accion_direccion> ::= "SET_DIRECTION" <direccion>
+<accion_puntos>    ::= "INCREASE_SCORE" <numero>
+<accion_crecer>    ::= "GROW" "PLAYER" <numero>
+<accion_gameover>  ::= "GAME_OVER"
+
+<coordenadas>      ::= "(" <numero> "," <numero> ")"
+<direccion>        ::= "UP" | "DOWN" | "LEFT" | "RIGHT"
+<identificador>    ::= <letra> | <letra> <identificador>
+<decimal_o_num>    ::= <numero> | <numero> "." <numero>
+<numero>           ::= <digito> | <digito> <numero>
+<letra>            ::= "A"..."Z" | "_"
+<digito>           ::= "0"..."9"
+<vacio>            ::= ""

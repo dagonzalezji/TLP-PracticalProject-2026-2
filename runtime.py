@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # runtime.py (VERSION CON INTERFAZ GRAFICA USANDO Tkinter y caracteres ASCII unicamente)
-# Adaptado para Python 3
+# Adaptado para Python 3 - Soporte Ecosistema BrickScript (Tetris, Snake Original y Snake Evolved)
 
 import sys
 import json
@@ -31,20 +31,40 @@ class Juego:
         self.ancho_canvas = self.ancho * self.taman_celda
         self.alto_canvas = self.alto * self.taman_celda
         
-        # Canvas para dibujar el juego
-        self.canvas = tk.Canvas(self.root, width=self.ancho_canvas, height=self.alto_canvas, bg='#111111')
+        # Canvas para dibujar el juego con estilo retro oscuro
+        self.canvas = tk.Canvas(self.root, width=self.ancho_canvas, height=self.alto_canvas, bg='#111827', highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, padx=10, pady=10)
 
-        # Marco lateral para la puntuacion y controles
-        self.marco_score = tk.Frame(self.root, width=150, height=self.alto_canvas, bg='#222222')
-        self.marco_score.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+        # Marco lateral para la puntuacion, niveles, estados y controles
+        self.marco_score = tk.Frame(self.root, width=190, height=self.alto_canvas, bg='#1F2937')
+        self.marco_score.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        self.label_score = tk.Label(self.marco_score, text="PUNTUACION\n0", bg='#222222', fg='white', font=('Consolas', 16, 'bold'))
-        self.label_score.pack(pady=40, padx=10)
+        # Titulo del juego en lateral
+        self.label_titulo = tk.Label(self.marco_score, text=self.tipo_juego, bg='#1F2937', fg='#60A5FA', font=('Consolas', 14, 'bold'))
+        self.label_titulo.pack(pady=(15, 5), padx=10)
+
+        # Puntuacion
+        self.label_score = tk.Label(self.marco_score, text="PUNTUACION\n0", bg='#1F2937', fg='white', font=('Consolas', 15, 'bold'))
+        self.label_score.pack(pady=10, padx=10)
         
-        # Nota: Se ha eliminado 'Q: Salir' de los controles en pantalla
-        self.label_controles = tk.Label(self.marco_score, text="CONTROLES\nFlechas: Mover/Rotar", bg='#222222', fg='gray', font=('Consolas', 10))
-        self.label_controles.pack(pady=20, padx=10)
+        # Nivel de dificultad (Snake)
+        self.label_nivel = tk.Label(self.marco_score, text="", bg='#1F2937', fg='#10B981', font=('Consolas', 11, 'bold'))
+        self.label_nivel.pack(pady=5, padx=10)
+
+        # Estado del Power-Up (Snake)
+        self.label_powerup = tk.Label(self.marco_score, text="", bg='#1F2937', fg='#9CA3AF', font=('Consolas', 10, 'bold'))
+        self.label_powerup.pack(pady=5, padx=10)
+
+        # Forma de la serpiente
+        self.label_forma = tk.Label(self.marco_score, text="", bg='#1F2937', fg='#A78BFA', font=('Consolas', 9))
+        self.label_forma.pack(pady=2, padx=10)
+
+        # Controles
+        controles_texto = "CONTROLES\nFlechas: Mover\nQ: Salir"
+        if self.tipo_juego == 'SNAKE':
+            controles_texto = "CONTROLES\nFlechas: Mover\n1/2/3: Nivel\nP: Power-Up\nC/T/R: Forma\nQ: Salir"
+        self.label_controles = tk.Label(self.marco_score, text=controles_texto, bg='#1F2937', fg='#9CA3AF', font=('Consolas', 9), justify=tk.LEFT)
+        self.label_controles.pack(side=tk.BOTTOM, pady=15, padx=10)
 
         # Configurar eventos de teclado. Usamos <Key> para capturar cualquier tecla
         self.root.bind('<Key>', self.manejar_input_gui)
@@ -60,11 +80,55 @@ class Juego:
             self.serpiente_cuerpo = []
             self.serpiente_direccion = (1, 0)
             self.posicion_comida = None
-            self.velocidad_gravedad = 0.15
-        
+            self.posicion_veneno = None
+            self.posicion_powerup = None
+            self.nubes = []
+            
+            # --- Configuracion de Niveles (Retrocompatibilidad) ---
+            # Si el archivo .brick no incluye el bloque LEVELS, se asume Baby por defecto
+            self.niveles_config = self.datos_juego.get('levels', {})
+            if not self.niveles_config:
+                self.niveles_config = {
+                    'BABY': {'TICK_SPEED': '0.15', 'SCORE_THRESHOLD': '0'}
+                }
+            
+            # Estado actual de nivel
+            self.nivel_actual = 'BABY'
+            self.velocidad_gravedad = float(self.obtener_prop_nivel('TICK_SPEED', 0.15))
+            
+            # --- Manejador de Estados (State Manager) para Power-Up "No Morir" ---
+            self.powerup_activo = False
+            self.powerup_tiempo_restante = 0.0
+            
+            # Obtener duracion configurada del power-up desde el JSON
+            props_shapes = self.datos_juego.get('shape_properties', {})
+            props_powerup = props_shapes.get('POWERUP_FOOD', {})
+            self.powerup_duracion_config = float(props_powerup.get('DURATION', self.niveles_config.get('ENTUSIASTA', {}).get('POWERUP_DURATION', 6)))
+
+            # --- Personalizacion Geometrica de la Serpiente ---
+            props_body = props_shapes.get('SNAKE_BODY', {})
+            props_pixel = props_shapes.get('PIXEL', {})
+            self.forma_cuerpo = props_body.get('TYPE', props_pixel.get('TYPE', 'RECTANGULAR')).upper()
+            
+            # Colores base
+            self.color_cabeza = props_shapes.get('SNAKE_HEAD', {}).get('COLOR', '#00FF00')
+            self.color_cuerpo = props_body.get('COLOR', '#33CC33')
+            self.color_comida = props_shapes.get('FOOD', {}).get('COLOR', '#FF1744')
+            self.color_veneno = props_shapes.get('POISON_FOOD', {}).get('COLOR', '#9900EF')
+            self.color_powerup = props_shapes.get('POWERUP_FOOD', {}).get('COLOR', '#FFD700')
+            self.color_nube = props_shapes.get('CLOUD_OBSTACLE', {}).get('COLOR', '#BAE6FD')
+
+            # Paleta de colores dinamica para la cola multicolor de Nyan Cat
+            self.colores_rainbow = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0099FF', '#4B0082', '#8F00FF']
+            self.rainbow_offset = 0
+
         self.timer_gravedad = 0
         self.ejecutar_evento('ON_START')
         self.timer_id = None # Para controlar el loop de Tkinter
+
+    def obtener_prop_nivel(self, prop, default=None):
+        nivel_datos = self.niveles_config.get(self.nivel_actual, {})
+        return nivel_datos.get(prop, default)
 
     def run(self):
         # Inicia el ciclo principal de juego de Tkinter
@@ -75,6 +139,18 @@ class Juego:
         if self.juego_terminado:
             self.mostrar_game_over()
             return
+
+        # Logica del Manejador de Estados (State Manager) para Power-Up
+        if self.tipo_juego == 'SNAKE':
+            if self.powerup_tiempo_restante > 0:
+                self.powerup_tiempo_restante = max(0.0, self.powerup_tiempo_restante - 0.05)
+                if self.powerup_tiempo_restante <= 0:
+                    self.powerup_activo = False
+                    print(">>> EL POWER-UP 'NO MORIR' HA EXPIRADO <<<")
+            
+            # Ciclar efecto multicolor dinamico de Nyan Cat
+            if self.nivel_actual == 'NYAN_CAT':
+                self.rainbow_offset = (self.rainbow_offset + 1) % len(self.colores_rainbow)
 
         # Logica de TICK/Gravedad
         # El loop se ejecuta cada 50ms (0.05 segundos)
@@ -95,40 +171,173 @@ class Juego:
         self.root.destroy()
         sys.exit(0)
 
-
     def manejar_input_gui(self, event):
         key = event.keysym.upper()
         
-        # Mapeo de teclas de flecha
+        if key == 'Q':
+            self.cerrar_ventana()
+            return
+
+        # Mapeo de teclas para Tetris
         if self.tipo_juego == 'TETRIS':
             if key == 'UP': self.ejecutar_evento('ON_KEY_UP')
             elif key == 'DOWN': self.ejecutar_evento('ON_KEY_DOWN')
             elif key == 'LEFT': self.ejecutar_evento('ON_KEY_LEFT')
             elif key == 'RIGHT': self.ejecutar_evento('ON_KEY_RIGHT')
+
+        # Mapeo de teclas para Snake
         elif self.tipo_juego == 'SNAKE':
-            # Llamamos a las funciones internas para Snake
+            # Movimiento
             if key == 'UP': self.snake_cambiar_direccion('UP')
             elif key == 'DOWN': self.snake_cambiar_direccion('DOWN')
             elif key == 'LEFT': self.snake_cambiar_direccion('LEFT')
             elif key == 'RIGHT': self.snake_cambiar_direccion('RIGHT')
+            
+            # Cambio de niveles en tiempo real (util para demostracion en video y validacion)
+            elif key == '1':
+                self.cambiar_nivel('BABY')
+            elif key == '2':
+                self.cambiar_nivel('ENTUSIASTA')
+            elif key == '3':
+                self.cambiar_nivel('NYAN_CAT')
+                
+            # Hotkey para probar el Power-Up "No Morir"
+            elif key == 'P':
+                print(">>> TECLA 'P' PULSADA: Activando Power-Up 'No Morir' <<<")
+                dur = float(self.obtener_prop_nivel('POWERUP_DURATION', self.powerup_duracion_config))
+                self.activar_powerup(dur)
 
+            # Hotkey para probar la Fruta Venenosa
+            elif key == 'V':
+                self.snake_spawn_veneno()
+
+            # Hotkeys para alternar la forma geometrica en vivo
+            elif key == 'C':
+                self.forma_cuerpo = 'CIRCULAR'
+                print(">>> FORMA GEOMÉTRICA CAMBIADA A: CIRCULAR <<<")
+            elif key == 'T':
+                self.forma_cuerpo = 'TRIANGULAR'
+                print(">>> FORMA GEOMÉTRICA CAMBIADA A: TRIANGULAR <<<")
+            elif key == 'R':
+                self.forma_cuerpo = 'RECTANGULAR'
+                print(">>> FORMA GEOMÉTRICA CAMBIADA A: RECTANGULAR <<<")
+
+    # =========================================================================
+    # METODOS DE DIBUJO Y RENDERIZADO GRAFICO
+    # =========================================================================
+
+    def dibujar_celda(self, x, y, color, forma='RECTANGULAR'):
+        ts = self.taman_celda
+        x1, y1 = x * ts, y * ts
+        x2, y2 = x1 + ts, y1 + ts
+
+        if forma == 'CIRCULAR':
+            self.canvas.create_oval(x1 + 1, y1 + 1, x2 - 1, y2 - 1, fill=color, outline='#000000', width=1)
+        elif forma == 'TRIANGULAR':
+            # Triangulo centrado dentro de la celda
+            pts = [(x1 + x2) / 2.0, y1 + 1, x1 + 1, y2 - 1, x2 - 1, y2 - 1]
+            self.canvas.create_polygon(pts, fill=color, outline='#000000', width=1)
+        else:
+            # Rectangular por defecto
+            self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline='#000000', width=1)
+
+    def dibujar_cabeza_nyan_cat(self, x, y):
+        """Renderiza una cabeza circular con rasgos distintivos de gato para el Nivel Nyan Cat."""
+        ts = self.taman_celda
+        x1, y1 = x * ts, y * ts
+        x2, y2 = x1 + ts, y1 + ts
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+        # Oreja izquierda (triangulo rosa)
+        oreja_izq = [x1 + 2, y1 + 7, x1 + 6, y1 + 1, x1 + 10, y1 + 7]
+        self.canvas.create_polygon(oreja_izq, fill='#F472B6', outline='#000000')
+
+        # Oreja derecha (triangulo rosa)
+        oreja_der = [x2 - 10, y1 + 7, x2 - 6, y1 + 1, x2 - 2, y1 + 7]
+        self.canvas.create_polygon(oreja_der, fill='#F472B6', outline='#000000')
+
+        # Cabeza circular (color gris claro/gato)
+        color_cara = '#FCD34D' if self.powerup_activo else '#E5E7EB'
+        self.canvas.create_oval(x1 + 2, y1 + 4, x2 - 2, y2 - 1, fill=color_cara, outline='#000000', width=1.5)
+
+        # Ojos negros
+        self.canvas.create_oval(cx - 5, cy - 2, cx - 2, cy + 1, fill='#000000')
+        self.canvas.create_oval(cx + 2, cy - 2, cx + 5, cy + 1, fill='#000000')
+
+        # Mejillas rosadas
+        self.canvas.create_oval(cx - 7, cy + 2, cx - 5, cy + 4, fill='#FB7185', outline='')
+        self.canvas.create_oval(cx + 5, cy + 2, cx + 7, cy + 4, fill='#FB7185', outline='')
+
+        # Nariz / boca
+        self.canvas.create_oval(cx - 1, cy + 2, cx + 1, cy + 4, fill='#BE185D', outline='')
+
+    def dibujar_nube(self, x, y):
+        """Renderiza una entidad fija de nube obstaculo en el mapa."""
+        ts = self.taman_celda
+        x1, y1 = x * ts, y * ts
+        x2, y2 = x1 + ts, y1 + ts
+
+        # Dibujar circulos superpuestos acolchonados para efecto de nube
+        self.canvas.create_oval(x1 + 1, y1 + 6, x1 + 15, y2 - 2, fill='#BAE6FD', outline='#38BDF8', width=1)
+        self.canvas.create_oval(x1 + 10, y1 + 5, x2 - 1, y2 - 2, fill='#BAE6FD', outline='#38BDF8', width=1)
+        self.canvas.create_oval(x1 + 5, y1 + 2, x1 + 19, y2 - 4, fill='#FFFFFF', outline='#38BDF8', width=1.5)
+
+    def dibujar_fruta_venenosa(self, x, y):
+        """Renderiza una fruta venenosa (morada con detalles de advertencia)."""
+        ts = self.taman_celda
+        x1, y1 = x * ts, y * ts
+        x2, y2 = x1 + ts, y1 + ts
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+        # Cuerpo venenoso
+        self.canvas.create_oval(x1 + 3, y1 + 3, x2 - 3, y2 - 3, fill=self.color_veneno, outline='#4C1D95', width=1.5)
+        # Tallo
+        self.canvas.create_line(cx, y1 + 3, cx + 3, y1 + 7, fill='#22C55E', width=2)
+        # Simbolo de veneno (X pequena)
+        self.canvas.create_text(cx, cy + 1, text="X", fill='#FFFFFF', font=('Consolas', 9, 'bold'))
+
+    def dibujar_powerup(self, x, y):
+        """Renderiza la fruta especial Power-Up 'No Morir' (estrella dorada brillante)."""
+        ts = self.taman_celda
+        x1, y1 = x * ts, y * ts
+        x2, y2 = x1 + ts, y1 + ts
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+        # Circulo dorado con resplandor
+        self.canvas.create_oval(x1 + 2, y1 + 2, x2 - 2, y2 - 2, fill='#FBBF24', outline='#D97706', width=2)
+        # Estrella central
+        self.canvas.create_text(cx, cy, text="★", fill='#FFFFFF', font=('Arial', 13, 'bold'))
 
     def dibujar(self):
         self.canvas.delete("all") # Borrar todo en cada frame
+        
+        # Actualizar Etiquetas de la barra lateral
         self.label_score.config(text="PUNTUACION\n" + str(self.puntuacion))
         
-        # Colores
-        COLOR_GRID_FIJA = '#343434' # Gris oscuro para las celdas fijadas (Tetris)
-        COLOR_PIEZA = '#00FFFF'     # Cyan para la pieza activa (Tetris)
-        COLOR_SNAKE_CABEZA = '#00FF00' # Verde brillante
-        COLOR_SNAKE_CUERPO = '#33CC33' # Verde normal
-        COLOR_FOOD = '#FF0000'      # Rojo
-        
+        if self.tipo_juego == 'SNAKE':
+            # Indicador de Nivel
+            colores_nivel = {'BABY': '#10B981', 'ENTUSIASTA': '#F59E0B', 'NYAN_CAT': '#EC4899'}
+            color_lbl = colores_nivel.get(self.nivel_actual, '#10B981')
+            self.label_nivel.config(text="NIVEL:\n" + self.nivel_actual.replace('_', ' '), fg=color_lbl)
+            
+            # Indicador de Power-Up "No Morir"
+            if self.powerup_activo:
+                self.label_powerup.config(
+                    text="★ NO MORIR ★\n[{:.1f}s]".format(self.powerup_tiempo_restante),
+                    fg='#FBBF24'
+                )
+            else:
+                self.label_powerup.config(text="ESTADO: NORMAL", fg='#6B7280')
+
+            # Indicador de Forma
+            self.label_forma.config(text="FORMA: " + self.forma_cuerpo)
+
         # 1. Dibujar la cuadricula estatica (grid base)
+        COLOR_GRID_FIJA = '#374151' # Gris oscuro para las celdas fijadas (Tetris)
         for y in range(self.alto):
             for x in range(self.ancho):
                 if self.grid[y][x] == 1:
-                     self.dibujar_celda(x, y, COLOR_GRID_FIJA)
+                    self.dibujar_celda(x, y, COLOR_GRID_FIJA, forma='RECTANGULAR')
 
         # 2. Dibujar la pieza actual de Tetris
         if self.tipo_juego == 'TETRIS' and self.pieza_actual:
@@ -138,27 +347,52 @@ class Juego:
                     if celda == 1:
                         self.dibujar_celda(self.pieza_x + x_offset, self.pieza_y + y_offset, getattr(self, 'color_pieza_actual', '#00FFFF'))
         
-        # 3. Dibujar Snake y Comida
+        # 3. Dibujar elementos de Snake
         if self.tipo_juego == 'SNAKE':
-            # Comida
+            # Dibujar Nubes Obstaculo (fijas en el mapa en nivel Nyan Cat)
+            for nube_pos in self.nubes:
+                self.dibujar_nube(nube_pos[0], nube_pos[1])
+
+            # Dibujar Comida Normal
             if self.posicion_comida:
                 x, y = self.posicion_comida
-                self.dibujar_celda(x, y, COLOR_FOOD)
-            # Cuerpo de la Serpiente
+                self.dibujar_celda(x, y, self.color_comida, forma='CIRCULAR')
+
+            # Dibujar Fruta Venenosa (si esta activa en el mapa)
+            if self.posicion_veneno:
+                x, y = self.posicion_veneno
+                self.dibujar_fruta_venenosa(x, y)
+
+            # Dibujar Power-Up "No Morir" (si esta activo en el mapa)
+            if self.posicion_powerup:
+                x, y = self.posicion_powerup
+                self.dibujar_powerup(x, y)
+
+            # Dibujar la Serpiente
             for i, segmento in enumerate(self.serpiente_cuerpo):
                 x, y = segmento
-                color = COLOR_SNAKE_CABEZA if i == 0 else COLOR_SNAKE_CUERPO
-                self.dibujar_celda(x, y, color)
-
-    def dibujar_celda(self, x, y, color):
-        ts = self.taman_celda # Alias para taman de celda
-        x1, y1 = x * ts, y * ts
-        x2, y2 = x1 + ts, y1 + ts
-        self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline='#000000')
-
+                
+                # Cabeza
+                if i == 0:
+                    if self.nivel_actual == 'NYAN_CAT':
+                        self.dibujar_cabeza_nyan_cat(x, y)
+                    else:
+                        color_cabeza = '#FBBF24' if self.powerup_activo else self.color_cabeza
+                        self.dibujar_celda(x, y, color_cabeza, forma=self.forma_cuerpo)
+                
+                # Segmentos del Cuerpo / Cola
+                else:
+                    if self.nivel_actual == 'NYAN_CAT':
+                        # Cola multicolor dinamica para Nyan Cat usando operador modulo %
+                        idx_color = (i - 1 + self.rainbow_offset) % len(self.colores_rainbow)
+                        color_seg = self.colores_rainbow[idx_color]
+                    else:
+                        color_seg = '#FDE68A' if self.powerup_activo else self.color_cuerpo
+                    
+                    self.dibujar_celda(x, y, color_seg, forma=self.forma_cuerpo)
 
     def ejecutar_evento(self, nombre_evento):
-        if nombre_evento in self.datos_juego['events']:
+        if nombre_evento in self.datos_juego.get('events', {}):
             for accion in self.datos_juego['events'][nombre_evento]:
                 verbo, objeto = accion.get('accion'), accion.get('objeto')
                 
@@ -176,9 +410,9 @@ class Juego:
                     if verbo == 'MOVE' and objeto == 'PLAYER': self.snake_mover_jugador()
                     if verbo == 'GROW': self.snake_crecer()
 
-
-    # METODOS DE LOGICA DE JUEGO (MANTENIDOS DEL ARCHIVO ORIGINAL)
-    # ---------------------------------------------------------------------
+    # =========================================================================
+    # METODOS DE LOGICA DE TETRIS (PRESERVADOS INTACTOS)
+    # =========================================================================
 
     def tetris_spawn_pieza(self):
         shapes = list(self.datos_juego['shapes'].keys())
@@ -266,19 +500,116 @@ class Juego:
             if self.lineas_limpias_total >= 2:
                 self.spawn_powerup = True
                 self.lineas_limpias_total = 0
-    
+
+    # =========================================================================
+    # METODOS DE LOGICA DE SNAKE EVOLVED (ACTIVIDAD 4)
+    # =========================================================================
+
     def snake_spawn_jugador(self, accion):
-        coords = accion['params'][0] if accion['params'] else [self.ancho // 2, self.alto // 2]
+        coords = accion['params'][0] if accion.get('params') else [self.ancho // 2, self.alto // 2]
         self.serpiente_cuerpo = [(coords[0], coords[1])]
         self.serpiente_direccion = (0, 0) # Inicia quieto hasta presionar una tecla
-        
+
+    def posiciones_ocupadas(self):
+        ocupadas = set(self.serpiente_cuerpo)
+        if self.posicion_comida: ocupadas.add(self.posicion_comida)
+        if self.posicion_veneno: ocupadas.add(self.posicion_veneno)
+        if self.posicion_powerup: ocupadas.add(self.posicion_powerup)
+        for n in self.nubes: ocupadas.add(n)
+        return ocupadas
+
     def snake_spawn_comida(self):
-        while True:
-            x, y = random.randint(0, self.ancho - 1), random.randint(0, self.alto - 1)
-            if (x, y) not in self.serpiente_cuerpo:
-                self.posicion_comida = (x, y)
-                break
-                
+        ocupadas = self.posiciones_ocupadas()
+        libres = [(x, y) for x in range(self.ancho) for y in range(self.alto) if (x, y) not in ocupadas]
+        if libres:
+            self.posicion_comida = random.choice(libres)
+
+    def snake_spawn_veneno(self):
+        """Genera una fruta venenosa en el mapa (solo activa en niveles Entusiasta y Nyan Cat)."""
+        if self.nivel_actual in ['ENTUSIASTA', 'NYAN_CAT']:
+            ocupadas = self.posiciones_ocupadas()
+            libres = [(x, y) for x in range(self.ancho) for y in range(self.alto) if (x, y) not in ocupadas]
+            if libres:
+                self.posicion_veneno = random.choice(libres)
+        else:
+            self.posicion_veneno = None
+
+    def snake_spawn_powerup(self):
+        """Genera el Power-Up 'No Morir' en el mapa."""
+        if self.nivel_actual in ['ENTUSIASTA', 'NYAN_CAT'] and not self.posicion_powerup and not self.powerup_activo:
+            ocupadas = self.posiciones_ocupadas()
+            libres = [(x, y) for x in range(self.ancho) for y in range(self.alto) if (x, y) not in ocupadas]
+            if libres:
+                self.posicion_powerup = random.choice(libres)
+
+    def inicializar_nubes(self):
+        """Genera entidades fijas de obstaculo (nubes) para el nivel Nyan Cat."""
+        self.nubes = []
+        if self.nivel_actual == 'NYAN_CAT':
+            cant_nubes = int(self.obtener_prop_nivel('OBSTACLES', 3))
+            posibles = [
+                (4, 4), (self.ancho - 5, 4),
+                (self.ancho // 2, self.alto // 2),
+                (4, self.alto - 5), (self.ancho - 5, self.alto - 5)
+            ]
+            cabeza = self.serpiente_cuerpo[0] if self.serpiente_cuerpo else (self.ancho // 2, self.alto // 2)
+            candidatas = [p for p in posibles if p != cabeza and 0 <= p[0] < self.ancho and 0 <= p[1] < self.alto]
+            random.shuffle(candidatas)
+            self.nubes = candidatas[:cant_nubes]
+
+    def activar_powerup(self, duracion=None):
+        """Manejador de Estados: Activa la invulnerabilidad temporal durante n segundos."""
+        if duracion is None:
+            duracion = float(self.obtener_prop_nivel('POWERUP_DURATION', self.powerup_duracion_config))
+        self.powerup_activo = True
+        self.powerup_tiempo_restante = float(duracion)
+        print(">>> POWER-UP 'NO MORIR' ACTIVADO! Duracion: {:.1f} segundos <<<".format(duracion))
+
+    def cambiar_nivel(self, nuevo_nivel):
+        """Transiciona entre niveles de dificultad actualizando velocidad y entidades."""
+        self.nivel_actual = nuevo_nivel
+        self.velocidad_gravedad = float(self.obtener_prop_nivel('TICK_SPEED', 0.15))
+        
+        print("\n=======================================================")
+        print(">>> CAMBIO DE NIVEL ACTIVADO: {} <<<".format(nuevo_nivel))
+        print("Velocidad de Tick: {}s".format(self.velocidad_gravedad))
+        
+        if nuevo_nivel == 'BABY':
+            self.posicion_veneno = None
+            self.posicion_powerup = None
+            self.nubes = []
+            print("Configuracion: Estandar (Sin veneno ni obstaculos)")
+        elif nuevo_nivel == 'ENTUSIASTA':
+            self.nubes = []
+            self.snake_spawn_veneno()
+            self.snake_spawn_powerup()
+            print("Configuracion: Frutas venenosas y Power-Up 'No Morir' habilitados")
+        elif nuevo_nivel == 'NYAN_CAT':
+            self.snake_spawn_veneno()
+            self.snake_spawn_powerup()
+            self.inicializar_nubes()
+            print("Configuracion: Nubes obstaculo activas, Cola Multicolor y Cabeza Nyan Cat")
+        print("=======================================================\n")
+
+    def verificar_transicion_nivel(self):
+        """Comprueba si la puntuacion amerita una transicion automatica de nivel."""
+        if not self.niveles_config:
+            return
+
+        nyan_cfg = self.niveles_config.get('NYAN_CAT')
+        if nyan_cfg:
+            umbral_nyan = int(nyan_cfg.get('SCORE_THRESHOLD', 80))
+            if self.puntuacion >= umbral_nyan and self.nivel_actual != 'NYAN_CAT':
+                self.cambiar_nivel('NYAN_CAT')
+                return
+
+        ent_cfg = self.niveles_config.get('ENTUSIASTA')
+        if ent_cfg:
+            umbral_ent = int(ent_cfg.get('SCORE_THRESHOLD', 30))
+            if self.puntuacion >= umbral_ent and self.nivel_actual == 'BABY':
+                self.cambiar_nivel('ENTUSIASTA')
+                return
+
     def snake_mover_jugador(self):
         if not self.serpiente_cuerpo: return
         cabeza_x, cabeza_y = self.serpiente_cuerpo[0]
@@ -288,19 +619,70 @@ class Juego:
             
         nueva_cabeza = (cabeza_x + dir_x, cabeza_y + dir_y)
 
+        # 1. Gestion de Colision con Paredes
         if not (0 <= nueva_cabeza[0] < self.ancho and 0 <= nueva_cabeza[1] < self.alto):
-            self.ejecutar_evento('ON_COLLISION_WALL')
-            return
+            if self.powerup_activo:
+                # Con Power-Up "No Morir", la serpiente no muere por paredes (rebobina o atraviesa)
+                nueva_cabeza = (nueva_cabeza[0] % self.ancho, nueva_cabeza[1] % self.alto)
+            else:
+                self.ejecutar_evento('ON_COLLISION_WALL')
+                return
             
+        # 2. Gestion de Auto-colision
         if nueva_cabeza in self.serpiente_cuerpo[:-1]:
-            self.ejecutar_evento('ON_COLLISION_SELF')
-            return
+            if not self.powerup_activo:
+                self.ejecutar_evento('ON_COLLISION_SELF')
+                return
 
+        # 3. Gestion de Colision con Nubes Obstaculo
+        if nueva_cabeza in self.nubes:
+            if self.powerup_activo:
+                print(">>> Invulnerable a la colision con nube obstaculo gracias a 'No Morir' <<<")
+            else:
+                if self.puntuacion > 0:
+                    print(">>> COLISION CON NUBE OBSTACULO! Perdida total de puntos ({}) pero sigue vivo <<<".format(self.puntuacion))
+                    self.puntuacion = 0
+                else:
+                    print(">>> COLISION CON NUBE OBSTACULO SIN PUNTOS! GAME OVER INMEDIATO <<<")
+                    self.juego_terminado = True
+                    return
+
+        # Insertar nueva cabeza
         self.serpiente_cuerpo.insert(0, nueva_cabeza)
-        
+        crecio = False
+
+        # 4. Consumo de Comida Normal
         if nueva_cabeza == self.posicion_comida:
+            crecio = True
             self.ejecutar_evento('ON_EAT_FOOD')
-        else:
+            self.verificar_transicion_nivel()
+            # Probabilidad de aparicion de power-up en niveles avanzados
+            if self.nivel_actual in ['ENTUSIASTA', 'NYAN_CAT'] and not self.posicion_powerup and not self.powerup_activo:
+                if random.random() < 0.4:
+                    self.snake_spawn_powerup()
+
+        # 5. Consumo de Fruta Venenosa
+        elif self.posicion_veneno and nueva_cabeza == self.posicion_veneno:
+            if self.powerup_activo:
+                print(">>> Fruta venenosa consumida SIN efecto (Power-Up 'No Morir' activo) <<<")
+            else:
+                penalizacion = int(self.obtener_prop_nivel('POISON_PENALTY', 10))
+                print(">>> FRUTA VENENOSA CONSUMIDA! Penalizacion: -{} puntos <<<".format(penalizacion))
+                if self.nivel_actual == 'NYAN_CAT' and self.puntuacion <= 0:
+                    print(">>> Consumo de veneno con 0 puntos en Nivel Nyan Cat: GAME OVER! <<<")
+                    self.juego_terminado = True
+                    return
+                self.puntuacion = max(0, self.puntuacion - penalizacion)
+            self.snake_spawn_veneno()
+
+        # 6. Consumo de Power-Up "No Morir"
+        elif self.posicion_powerup and nueva_cabeza == self.posicion_powerup:
+            dur = float(self.obtener_prop_nivel('POWERUP_DURATION', self.powerup_duracion_config))
+            self.activar_powerup(dur)
+            self.posicion_powerup = None
+
+        # Si no comio fruta normal, retirar el ultimo segmento para mantener longitud
+        if not crecio:
             self.serpiente_cuerpo.pop()
 
     def snake_cambiar_direccion(self, direccion):
@@ -316,14 +698,17 @@ class Juego:
     def snake_crecer(self):
         pass
 
-
+    # =========================================================================
     # METODOS DE SALIDA (ADAPTADOS A GUI)
-    # -----------------------------------
+    # =========================================================================
 
     def mostrar_game_over(self):
-        # Muestra una ventana de mensaje de Tkinter
-        print("GAME OVER! Score:", self.puntuacion)
-        self.root.destroy()
+        # Muestra mensaje en consola y cierra ventana de forma limpia
+        print("GAME OVER! Puntuacion Final:", self.puntuacion)
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
         sys.exit(0)
 
 if __name__ == "__main__":
