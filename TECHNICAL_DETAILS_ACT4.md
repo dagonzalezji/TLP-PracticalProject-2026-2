@@ -1,4 +1,6 @@
 # Análisis Técnico Detallado - Cambios Actividad 4
+**Integrantes del Equipo (Participación Equitativa 50% - 50%):** David Gonzalez & Daniel David Florez Bocanegra  
+**Asignatura:** Teoría de Lenguajes de Programación (TLP 2026-2S)
 
 Este documento detalla técnica, analítica y metodológicamente cada uno de los requerimientos implementados para la **Actividad 4: Evolución del Lenguaje y Lógica de Niveles (Caso Snake)**. Se expone de forma exhaustiva qué se hizo, en qué archivos, función por función, las decisiones de arquitectura tomadas, el impacto visible en el juego y la garantía absoluta de retrocompatibilidad.
 

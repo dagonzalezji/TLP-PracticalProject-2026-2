@@ -1,8 +1,8 @@
 # SNAKE EVOLVED - INFORME TECNICO DE CAMBIOS Y VERIFICACION (ACTIVIDAD 4)
 # Asignatura: Teoria de Lenguajes de Programacion (TLP 2026-2S)
-# Integrantes del Equipo de Desarrollo y Aportes:
-# - David Gonzalez: Diseno de la gramatica BNF, Parser de Niveles (LEVELS), y Manejador de Estados de Invulnerabilidad (Power-Up Timer).
-# - Equipo TLP: Logica de deteccion y gestion de colisiones con Nubes Obstaculo, renderizado de primitivas geometricas (Circulo, Triangulo) y motor visual Nyan Cat.
+# Integrantes del Equipo de Desarrollo y Aportes (Participacion Equitativa 50% - 50%):
+# - David Gonzalez (50%): Arquitectura de compilacion, BNF, Parser de Niveles (LEVELS), y Manejador de Estados del Power-Up "No Morir".
+# - Daniel David Florez Bocanegra (50%): Logica de colisiones con Nubes Obstaculo, motor geometrico (Circulos/Triangulos), diseno visual Nyan Cat y balance de niveles.
 
 ===============================================================================
 1. RESUMEN EJECUTIVO
@@ -89,17 +89,18 @@ D. SISTEMA DE NIVELES DE DIFICULTAD Y RETROCOMPATIBILIDAD
   - Verificacion: Ejecutado el script de prueba automatizado, validando que tetris.brick y snake.brick original se compilan y juegan con cero discrepancias respecto a la Actividad 3.
 
 ===============================================================================
-3. MATRIZ DE APORTES DE LOS INTEGRANTES
+3. MATRIZ DE APORTES DE LOS INTEGRANTES (PARTICIPACION EQUITATIVA 50% - 50%)
 ===============================================================================
-Integrante: David Gonzalez
-- Arquitectura general de la Actividad 4 y actualizacion de compiler.py (parsear_levels y generalizacion de parsear_shape).
-- Formalizacion de las gramaticas BNF (gramaticas bnf/snake_evolved.bnf y actualizacion de snake.bnf).
-- Diseno e implementacion del State Manager para el temporizador del Power-Up "No Morir".
-- Suite de pruebas de regresion y validacion automatica (scratch/test_actividad4.py).
-- Redaccion de la documentacion tecnica e informes de cambios.
+Integrante 1: David Gonzalez (50%)
+- Arquitectura general de la Actividad 4 y actualizacion del compilador (compiler.py): diseno del bloque parsear_levels y generalizacion de parsear_shape para atributos dinamicos clave-valor.
+- Formalizacion de las especificaciones BNF (gramaticas bnf/snake_evolved.bnf y actualizacion de snake.bnf) con reglas para niveles, duracion y tipos de forma.
+- Diseno e implementacion del State Manager en runtime.py para el control temporal en tiempo real del Power-Up "No Morir" (contador regresivo en el loop principal).
+- Desarrollo de la suite de pruebas unitarias y de integracion automatizada (scratch/test_actividad4.py) para la validacion de todos los criterios de aceptacion.
+- Redaccion del informe tecnico de cambios y analisis de retrocompatibilidad arquitectural.
 
-Integrante: Equipo TLP
-- Diseno de las geometrias en runtime.py (algoritmos para renderizado de circulos, triangulos y cabeza Nyan Cat).
-- Implementacion de la logica de colision con nubes obstaculo y penalizaciones en cascada.
-- Diseno del archivo fuente games/snake_evolved.brick con los 3 niveles y balance de parametros.
-- Elaboracion del guion de demostracion en video y validacion de la GUI en Tkinter.
+Integrante 2: Daniel David Florez Bocanegra (50%)
+- Diseno e implementacion de las primitivas geometricas en runtime.py (algoritmos matematicos para renderizado de circulos, triangulos y cabeza Nyan Cat con rasgos felinos).
+- Implementacion de la logica y resolucion de colisiones criticas con Nubes Obstaculo en el mapa y su penalizacion diferencial segun puntuacion previa.
+- Algoritmo de animacion modular para la cola multicolor de Nyan Cat (operador modulo % con desfase dinamico de colores espectrales del arcoiris).
+- Diseno del archivo fuente de juego games/snake_evolved.brick: definicion de formas, colores, eventos y balance de velocidades/umbrales para los 3 niveles.
+- Elaboracion y estructuracion del guion tecnico para el video demostrativo y validacion de la interfaz grafica Tkinter.

@@ -1,5 +1,6 @@
 # Guión Oficial para Video Demostrativo - Actividad 4 (Snake Evolved)
 **Asignatura:** Teoría de Lenguajes de Programación (TLP 2026-2S)  
+**Integrantes (50% / 50%):** David Gonzalez & Daniel David Florez Bocanegra  
 **Tiempo estimado de video:** 2 a 3 minutos  
 **Herramienta recomendada de grabación en Mac:** Atajo nativo de macOS `Cmd + Shift + 5` o `QuickTime Player` -> *Nueva grabación de pantalla*.
 
